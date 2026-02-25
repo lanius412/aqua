@@ -1,12 +1,15 @@
 package list
 
 import (
-	"fmt"
 	"log/slog"
 
 	"github.com/aquaproj/aqua/v2/pkg/config"
 	"github.com/aquaproj/aqua/v2/pkg/config/aqua"
 	"github.com/suzuki-shunsuke/slog-error/slogerr"
+	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
+	"github.com/olekukonko/tablewriter/renderer"
+	"github.com/fatih/color"
 )
 
 func (c *Controller) listInstalled(logger *slog.Logger, param *config.Param) error {
@@ -54,8 +57,48 @@ func (c *Controller) listInstalledByConfig(logger *slog.Logger, cfgFilePath stri
 	if err := c.configReader.Read(logger, cfgFilePath, cfg); err != nil {
 		return err //nolint:wrapcheck
 	}
-	for _, pkg := range cfg.Packages {
-		fmt.Fprintln(c.stdout, pkg.Name+"\t"+pkg.Version+"\t"+pkg.Registry)
+
+	table := tablewriter.NewTable(c.stdout,
+		tablewriter.WithHeader([]string{"Package", "Version", "Registry"}),
+		tablewriter.WithRenderer(
+			renderer.NewColorized(
+				renderer.ColorizedConfig{
+					Header: renderer.Tint{
+						FG: renderer.Colors{
+							color.Italic,
+							color.FgHiBlue,
+						},
+					},
+					Column: renderer.Tint{
+						FG: renderer.Colors{
+							color.Reset,
+						},
+					},
+				},
+			),
+		),
+		tablewriter.WithRendition(
+			tw.Rendition{
+				Borders: tw.BorderNone,
+				Settings: tw.Settings{
+					Separators: tw.SeparatorsNone,
+					Lines: tw.LinesNone,
+				},
+			},
+		),
+		tablewriter.WithHeaderAlignment(tw.AlignLeft),
+	)
+
+	data := make([][]string, len(cfg.Packages))
+	for i, pkg := range cfg.Packages {
+		data[i] = []string{
+			pkg.Name,
+			pkg.Version,
+			pkg.Registry,
+		}
 	}
-	return nil
+
+	table.Bulk(data)
+
+	return table.Render()
 }
